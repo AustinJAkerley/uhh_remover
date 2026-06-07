@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "uhh_remover"
+version = "0.1.0"
+description = "Seamlessly remove filler sounds (uh, um, uhh) from audio and video."
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+dependencies = [
+    "requests>=2.28",
+]
+
+[project.optional-dependencies]
+api = [
+    "fastapi>=0.100",
+    "uvicorn[standard]>=0.22",
+    "python-multipart>=0.0.6",
+]
+test = [
+    "pytest>=7.0",
+]
+
+[project.scripts]
+uhh-remover = "uhh_remover.cli:main"
+
+[tool.setuptools]
+packages = ["uhh_remover", "uhh_remover.transcription"]

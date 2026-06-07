@@ -1,0 +1,12 @@
+# Core runtime needs ffmpeg on PATH (system package, not pip).
+
+# Transcription provider (AssemblyAI) HTTP calls:
+requests>=2.28
+
+# Web platform / API:
+fastapi>=0.100
+uvicorn[standard]>=0.22
+python-multipart>=0.0.6
+
+# Tests:
+pytest>=7.0

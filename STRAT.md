@@ -9,6 +9,28 @@ This document describes the approach I plan to try **first** (the MVP), plus a r
 
 ---
 
+## 0. Locked-in decisions & current MVP status
+
+Decisions for this build:
+- **Filler scope:** configurable; **default = `uh`, `um`** plus their elongations (`uhh`,
+  `ummm`, …). Callers can widen to a catch-all (`er`, `hmm`, `like`, `you know`).
+- **Mode:** **auto one-shot** — no preview/approval step in the default flow.
+- **Footage:** **arbitrary** — must work on any input, not just talking-head.
+- **ML:** use a **provider**, not our own model. MVP uses **AssemblyAI** (`disfluencies`
+  on) for word-level filler timestamps. Any other ASR can be plugged in via the `json`
+  provider. Cost is acceptable / billable to customers.
+- **Retention:** **forever** — uploaded media and results are not auto-deleted.
+- **Target:** **video-first** working MVP; audio-only is a byproduct of the same pipeline.
+
+**What's built now (MVP):** `transcribe (AssemblyAI) → detect (configurable) → edit
+(ffmpeg)`. The editor uses ffmpeg `select`/`aselect` to drop filler time-ranges from video
+**and** audio together and re-stamp timestamps, so output stays in sync on any footage
+(the **Tier 0** hard cut below). Ships as a Python package, a `uhh-remover` CLI, and a
+FastAPI service. The video "seamlessness" upgrades (Tiers 1–4) remain the roadmap if the
+hard cut isn't good enough.
+
+---
+
 ## 1. The core problem, broken down
 
 Removing an "uhh" is really three sub-problems:
