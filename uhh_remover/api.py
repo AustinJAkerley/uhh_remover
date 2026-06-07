@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import threading
 import uuid
 from typing import List, Optional
@@ -37,6 +38,25 @@ except ImportError as exc:  # pragma: no cover - import guard
 DATA_DIR = os.environ.get("UHH_DATA_DIR", os.path.abspath("./uhh_data"))
 JOBS_DIR = os.path.join(DATA_DIR, "jobs")
 _INDEX_LOCK = threading.Lock()
+
+# Output containers we allow. The chosen format is validated against this fixed allowlist
+# before it is ever used to build a path, so user input can never influence the
+# filesystem path (no path injection / traversal). Uploaded inputs are stored under a
+# fixed name; ffmpeg detects the input format from the content, not the extension.
+ALLOWED_FORMATS = {
+    "mp4", "mov", "mkv", "webm", "avi",  # video
+    "wav", "mp3", "m4a", "aac", "flac", "ogg",  # audio
+}
+_DISPLAY_NAME = re.compile(r"[^A-Za-z0-9._ -]")
+
+
+def _display_name(name: Optional[str]) -> str:
+    """A human-friendly, harmless label for the upload (metadata only, never a path)."""
+    base = os.path.basename(name or "")
+    base = _DISPLAY_NAME.sub("_", base).strip().lstrip(".")
+    return base or "input"
+
+
 
 app = FastAPI(title="uhh_remover", version="0.1.0")
 
@@ -64,8 +84,14 @@ def _write_meta(job_id: str, meta: dict) -> None:
             json.dump(meta, f, indent=2)
 
 
-def _run_job(job_id: str, input_path: str, output_path: str, config: FillerConfig,
-             provider: str, api_key: Optional[str]) -> None:
+def _run_job(
+    job_id: str,
+    input_path: str,
+    output_path: str,
+    config: FillerConfig,
+    provider: str,
+    api_key: Optional[str],
+) -> None:
     meta = _read_meta(job_id) or {}
     try:
         meta["status"] = "processing"
@@ -89,21 +115,30 @@ async def create_job(
     file: UploadFile = File(...),
     fillers: Optional[str] = Form(None),
     provider: str = Form("assemblyai"),
+    output_format: str = Form("mp4"),
 ):
+    output_format = (output_format or "mp4").strip().lower().lstrip(".")
+    if output_format not in ALLOWED_FORMATS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unsupported output_format. Allowed: {sorted(ALLOWED_FORMATS)}",
+        )
+
     job_id = uuid.uuid4().hex
     jdir = _job_dir(job_id)
     os.makedirs(jdir, exist_ok=True)
 
-    in_name = os.path.basename(file.filename or "input")
-    input_path = os.path.join(jdir, f"input_{in_name}")
+    # Fixed, non-user-derived filenames inside a per-job UUID directory. ffmpeg detects
+    # the input container from its content, so the input needs no real extension.
+    display_name = _display_name(file.filename)
+    input_path = os.path.join(jdir, "input.bin")
     with open(input_path, "wb") as out:
         while chunk := await file.read(1024 * 1024):
             out.write(chunk)
 
-    ext = os.path.splitext(in_name)[1] or ".mp4"
-    output_path = os.path.join(jdir, f"output{ext}")
+    output_path = os.path.join(jdir, f"output.{output_format}")
 
-    filler_list: List[str] = (
+    filler_list: Optional[List[str]] = (
         [f.strip() for f in fillers.split(",") if f.strip()] if fillers else None
     )
     config = FillerConfig(fillers=filler_list) if filler_list else FillerConfig()
@@ -111,7 +146,8 @@ async def create_job(
     meta = {
         "id": job_id,
         "status": "queued",
-        "filename": in_name,
+        "filename": display_name,
+        "output_format": output_format,
         "input_path": input_path,
         "output_path": output_path,
         "provider": provider,
@@ -119,7 +155,12 @@ async def create_job(
     _write_meta(job_id, meta)
 
     background_tasks.add_task(
-        _run_job, job_id, input_path, output_path, config, provider,
+        _run_job,
+        job_id,
+        input_path,
+        output_path,
+        config,
+        provider,
         os.environ.get("ASSEMBLYAI_API_KEY"),
     )
     return JSONResponse({"id": job_id, "status": "queued"}, status_code=202)

@@ -44,10 +44,12 @@ class FillerConfig:
     merge_gap: float = 0.15
 
     def normalized_fillers(self) -> List[str]:
-        """Lower-cased, de-duplicated, non-empty filler list."""
-        seen = []
+        """Lower-cased, de-duplicated (order-preserving), non-empty filler list."""
+        seen = set()
+        result = []
         for f in self.fillers:
             f = (f or "").strip().lower()
             if f and f not in seen:
-                seen.append(f)
-        return seen
+                seen.add(f)
+                result.append(f)
+        return result

@@ -44,8 +44,8 @@ def build_matcher(config: FillerConfig):
     patterns.extend(p for p in config.extra_patterns if p)
 
     if not patterns:
-        # Match nothing.
-        return re.compile(r"(?!x)x")
+        # No fillers configured: return a regex that can never match anything.
+        return re.compile(r"(?!)")
     combined = "|".join(f"(?:{p})" for p in patterns)
     return re.compile(f"^(?:{combined})$", re.IGNORECASE)
 

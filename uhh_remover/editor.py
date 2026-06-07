@@ -19,6 +19,9 @@ from typing import List, Optional
 from .media import ffmpeg_path
 from .models import FillerSpan
 
+# Tail of ffmpeg stderr to surface when it fails (full logs can be very long).
+MAX_STDERR_CHARS = 4000
+
 
 def clamp_spans(
     spans: List[FillerSpan], duration: Optional[float]
@@ -91,5 +94,5 @@ def remove_spans(
             "ffmpeg failed to edit media:\n"
             + " ".join(cmd)
             + "\n\n"
-            + proc.stderr[-4000:]
+            + proc.stderr[-MAX_STDERR_CHARS:]
         )
