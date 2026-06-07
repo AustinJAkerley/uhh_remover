@@ -71,6 +71,19 @@ def _validate_job_id(job_id: str) -> str:
     return job_id
 
 
+def _safe_job_path(job_id: str, *parts: str) -> Optional[str]:
+    """Resolve a path inside a job directory, or None if it escapes JOBS_DIR.
+
+    Normalizes the full path and verifies it stays within JOBS_DIR, defeating any
+    path-traversal attempt from a crafted ``job_id`` (e.g. ``../../etc/passwd``).
+    """
+    base = os.path.realpath(JOBS_DIR)
+    resolved = os.path.realpath(os.path.join(base, job_id, *parts))
+    if os.path.commonpath([base, resolved]) != base:
+        return None
+    return resolved
+
+
 def _job_dir(job_id: str) -> str:
     return os.path.join(JOBS_DIR, _validate_job_id(job_id))
 
@@ -82,8 +95,8 @@ def _meta_path(job_id: str) -> str:
 def _read_meta(job_id: str) -> Optional[dict]:
     if not _JOB_ID_RE.fullmatch(job_id or ""):
         return None
-    path = _meta_path(job_id)
-    if not os.path.exists(path):
+    path = _safe_job_path(job_id, "job.json")
+    if path is None or not os.path.exists(path):
         return None
     with open(path, "r", encoding="utf-8") as f:
         return json.load(f)
