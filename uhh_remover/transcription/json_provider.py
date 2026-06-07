@@ -43,6 +43,10 @@ class JSONTranscriber(Transcriber):
             raw_words = data
             units = "s"
 
+        if units not in ("s", "ms"):
+            raise ValueError(
+                f"Invalid 'units' {units!r} in transcript; expected 's' or 'ms'."
+            )
         divisor = 1000.0 if units == "ms" else 1.0
         words: List[Word] = []
         for w in raw_words:

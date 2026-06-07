@@ -86,6 +86,8 @@ def detect_fillers(words: List[Word], config: FillerConfig) -> List[FillerSpan]:
 
 
 def _merge_spans(spans: List[FillerSpan], merge_gap: float) -> List[FillerSpan]:
+    # FillerSpan is intentionally mutable; we extend the trailing span in place while
+    # merging, working only on the freshly-built copies created below.
     if not spans:
         return []
     spans = sorted(spans, key=lambda s: s.start)

@@ -80,6 +80,8 @@ def _meta_path(job_id: str) -> str:
 
 
 def _read_meta(job_id: str) -> Optional[dict]:
+    if not _JOB_ID_RE.fullmatch(job_id or ""):
+        return None
     path = _meta_path(job_id)
     if not os.path.exists(path):
         return None
@@ -115,7 +117,7 @@ def _run_job(
         _write_meta(job_id, meta)
     except Exception as exc:  # noqa: BLE001 - surface any failure to the client
         meta["status"] = "failed"
-        meta["error"] = str(exc)
+        meta["error"] = f"{type(exc).__name__}: {exc}"
         _write_meta(job_id, meta)
 
 
