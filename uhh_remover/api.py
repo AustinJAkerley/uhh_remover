@@ -60,9 +60,19 @@ def _display_name(name: Optional[str]) -> str:
 
 app = FastAPI(title="uhh_remover", version="0.1.0")
 
+# Job IDs are uuid4().hex (32 lowercase hex chars). Validating against this fixed pattern
+# before using a job id in any filesystem path prevents path traversal via the URL.
+_JOB_ID_RE = re.compile(r"^[0-9a-f]{32}$")
+
+
+def _validate_job_id(job_id: str) -> str:
+    if not _JOB_ID_RE.match(job_id or ""):
+        raise HTTPException(status_code=404, detail="Job not found")
+    return job_id
+
 
 def _job_dir(job_id: str) -> str:
-    return os.path.join(JOBS_DIR, job_id)
+    return os.path.join(JOBS_DIR, _validate_job_id(job_id))
 
 
 def _meta_path(job_id: str) -> str:
